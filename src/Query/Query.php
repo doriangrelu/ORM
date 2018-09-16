@@ -11,6 +11,7 @@ namespace Dorian\ORM\Query;
 
 use Cake\Utility\Inflector;
 use Dorian\ORM\Repository;
+use Psr\Container\ContainerInterface;
 
 class Query
 {
@@ -20,22 +21,30 @@ class Query
     private $_contains = [];
     private $_conditions = [];
     private $_fields = [];
+    private $_reposiotryNamespace;
+    private $_entityNamespace;
     /**
      * \PDO
      */
     private $_connexion;
 
+    private $_container;
+
     /**
      * Query constructor.
      * @param Repository $repository
+     * @param ContainerInterface $container
      * @internal param $table
      * @internal param null $id
      * @internal param null $_table
      */
-    public function __construct(Repository $repository)
+    public function __construct(Repository $repository, ContainerInterface $container)
     {
         $this->_table = $repository->getTable();
         $this->_id = $repository->getId();
+        $this->_entityNamespace = $repository->getEntityNamespace();
+        $this->_reposiotryNamespace = $repository->getRepositoryNamespace();
+        $this->_container = $container;
     }
 
 
@@ -134,9 +143,12 @@ class Query
         return implode(', ', $fields);
     }
 
-    private function _getRealTableName()
+    private function _getRealTableName($table = null)
     {
-        return mb_strtolower(Inflector::underscore($this->_table));
+        if (is_null($table)) {
+            $table = $this->_table;
+        }
+        return mb_strtolower(Inflector::underscore($table));
     }
 
     private function _join($contain)
@@ -147,15 +159,18 @@ class Query
 
         while (!empty($tableList)) {
             $to = array_pop($tableList);
-            $statment .= " LEFT JOIN $to ON $from";
-            $from=$to;
+
+            $toTableName = $this->_getRealTableName($to);
+            $statment .= " LEFT JOIN $toTableName AS $to ON {$this->_getJoinsIdConditions($from, $to)}";
+            $from = $to;
         }
         return $statment;
     }
 
     private function _getJoinsIdConditions(string $from, string $to)
     {
-
+        $fromInstance = $this->_container->get($this->_reposiotryNamespace . $from . 'Repository');
+        return $fromInstance->getAssociation($to)->getJoinCondition();
     }
 
     public function __toString()

@@ -10,11 +10,20 @@ class QueryTest extends \PHPUnit\Framework\TestCase
 {
     public function testBuildingStatment()
     {
-        $repositoy = new \Tests\Framework\Repository\PersonnesRepository();
 
-        var_dump($repositoy->find()->contain('Tests.Dorians')->select('Tests.dorian')->__toString());
+        $environment = (new \Dorian\ORM\Environment())
+        ->setRepositoryNamspace("Tests\\Framework\\Repository\\")
+        ->setDatabaseConnexion('localhost', 'test', 'root', '')
+        ->setEntityNamespace("Tests\\Framework\\Entity\\");
 
-        die();
+
+        $manager = new \Dorian\ORM\Manager($environment);
+
+
+        var_dump($manager->getRepository('Personnes')->find()->contain('Roles')->select('Tests.dorian')->__toString());
+
+        die('here');
+
 
     }
 }

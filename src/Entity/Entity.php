@@ -16,6 +16,12 @@ class Entity
     private $_fields = [];
     private $_errors = [];
 
+    public function __construct()
+    {
+
+    }
+
+
     /**
      * @param $name
      * @param $value
