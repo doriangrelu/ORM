@@ -37,9 +37,9 @@ class Manager
         $builder->addDefinitions($environment->getConfig() + [
                 PDO::class => function (\Psr\Container\ContainerInterface $c) use ($config) {
                     return new PDO(
-                        'mysql:host=' . $c->get($config[Environment::DB_HOST]) . ';dbname=' . $c->get($config[Environment::DB_NAME]),
-                        $c->get($config[Environment::DB_USER]),
-                        $c->get($config[Environment::DB_PASSWORD]),
+                        'mysql:host=' . $c->get(Environment::DB_HOST) . ';dbname=' . $c->get(Environment::DB_NAME),
+                        $c->get(Environment::DB_USER),
+                        $c->get(Environment::DB_PASSWORD),
                         [
                             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ,
                             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION

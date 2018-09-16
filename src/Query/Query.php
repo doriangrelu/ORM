@@ -28,7 +28,14 @@ class Query
      */
     private $_connexion;
 
+    /**
+     * @var ContainerInterface
+     */
     private $_container;
+    /**
+     * @var ReflexionTable|mixed
+     */
+    private $_reflexion;
 
     /**
      * Query constructor.
@@ -45,6 +52,8 @@ class Query
         $this->_entityNamespace = $repository->getEntityNamespace();
         $this->_reposiotryNamespace = $repository->getRepositoryNamespace();
         $this->_container = $container;
+        $this->_connexion = $container->get(\PDO::class);
+        $this->_reflexion = $container->get(ReflexionTable::class);
     }
 
 
@@ -130,7 +139,14 @@ class Query
     private function _getSelect()
     {
         if (empty($this->_fields)) {
-            return '*';
+            $select = [];
+            $reflexion = $this->_reflexion;
+            foreach (array_merge($this->_contains, [$this->_table]) as $contain) {
+                $select = array_merge($select, array_map(function ($value) use ($reflexion) {
+                    return $reflexion->showColumns($value);
+                }, explode('.', $contain)));
+            }
+            return implode(', ', $select);
         }
 
         $fields = array_map(function ($value) {
@@ -177,11 +193,13 @@ class Query
     {
         $statment = "SELECT {$this->_getSelect()} FROM {$this->_getRealTableName()} AS {$this->_table}";
 
+        $joins = [];
         foreach ($this->_contains as $contain) {
-            var_dump($this->_join($contain));
-            die('here');
+            $joins[] = $this->_join($contain);
+
         }
 
+        $statment .= implode(' ', $joins);
         return $statment;
     }
 
