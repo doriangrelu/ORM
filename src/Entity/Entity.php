@@ -28,8 +28,8 @@ class Entity
      */
     public function __set($name, $value)
     {
-        if (method_exists($this, $this->_getMethodName('set', $name))) {
-            $method = $this->_getMethodName('set', $name);
+        if (method_exists($this, self::getMethodName('set', $name))) {
+            $method = self::getMethodName('set', $name);
             $value = $method($value);
         }
 
@@ -72,7 +72,7 @@ class Entity
      * @param string $name
      * @return string
      */
-    private function _getMethodName(string $type, string $name)
+    public static function getMethodName(string $type, string $name)
     {
         return '_' . mb_strtolower($type) . ucfirst($name);
     }

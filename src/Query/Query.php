@@ -26,6 +26,7 @@ class Query
     private $_entityNamespace;
     private $_entityContains = [];
     private $_bindedParams = [];
+    private $_joinedTables=[];
     private $_operators = ['<', '>', '<>', 'LIKE', 'IN', 'NOT IN', 'BETWEEN', '!=', '<=', '>=',];
     /**
      * \PDO
@@ -109,7 +110,25 @@ class Query
 
     public function first()
     {
+        $data = $this->_execute();
+        var_dump($this->_getHydrator($data)->hydrate());
+        die();
+    }
+
+    private function _execute()
+    {
         $query = $this->_connexion->prepare($this->__toString());
+        $this->_makeParams($query);
+        $query->execute();
+        return $query->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    private function _makeParams(\PDOStatement &$statement): void
+    {
+        foreach ($this->_bindedParams as $field => $value) {
+            $paramType = (is_numeric($value)) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+            $statement->bindParam(':' . $field, $value, $paramType);
+        }
     }
 
     public function firstOrFail()
@@ -117,6 +136,10 @@ class Query
 
     }
 
+    private function _getHydrator($data)
+    {
+        return new Hydrator($data, $this->_entityContains, $this->_table, $this->_container);
+    }
 
     public function toArray()
     {
@@ -184,7 +207,16 @@ class Query
 
         while (!empty($tableList)) {
             $to = array_pop($tableList);
+            if(in_array($to, $this->_joinedTables)){
+                $from=$to;
+                continue;
+            } else {
+                $this->_joinedTables[] = $to;
+            }
 
+            if (!isset($this->_entityContains[$from]) || !in_array($to, $this->_entityContains[$from])) {
+                $this->_entityContains[$from][] = $to;
+            }
             $toTableName = $this->_getRealTableName($to);
             $statment .= " LEFT JOIN $toTableName AS $to ON {$this->_getJoinsIdConditions($from, $to)}";
             $from = $to;
@@ -213,7 +245,7 @@ class Query
         $max = count($this->_conditions);
         foreach ($this->_conditions as $field => $condition) {
             if ($i === 0) {
-                $conditions[] = ' WHERE ';
+                $conditions[] = 'WHERE';
             }
             $conditionLogic = $this->_getConditionLogic($condition);
             $operator = $this->_getConditionOperator($field);
@@ -252,22 +284,6 @@ class Query
             return $table . '.' . '`' . mb_strtolower($fieldTable) . '`';
         }
         return '`' . mb_strtolower($field) . '`';
-    }
-
-    private function _getFormatedCondition($operator, $condition)
-    {
-        switch ($operator) {
-            case 'IN':
-                if (!is_array($condition)) {
-                    throw new BadConditionException();
-                }
-                return ' IN (' . implode(', ', $condition) . ')';
-            default :
-                if (strpos(mb_strtoupper($condition), 'IS') !== false) {
-                    return ' ' . $condition;
-                }
-                return $operator . ' ' . $condition;
-        }
     }
 
     private function _getBindedParamName($field)
@@ -311,7 +327,7 @@ class Query
             $joins[] = $this->_join($contain);
         }
         $statment .= implode(' ', $joins);
-        $statment .= implode(' ', $this->_getCondition());
+        $statment .= ' ' . implode(' ', $this->_getCondition());
         return $statment;
     }
 

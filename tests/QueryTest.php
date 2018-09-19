@@ -16,12 +16,11 @@ class QueryTest extends \PHPUnit\Framework\TestCase
             ->setEntityNamespace("Tests\\Framework\\Entity\\");
         $manager = new \Dorian\ORM\Manager($environment);
         var_dump($manager->getRepository('Personnes')->find()
-            ->contain('Roles')
+            ->contain('Roles', 'Roles.Levels')
             ->where([
-                'Roles.name' => '1',
-                'name >' => 10
+                'Roles.name' => 'Admin',
             ])
-            ->__toString());
+            ->first());
 
         die('here');
     }

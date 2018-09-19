@@ -11,7 +11,7 @@ namespace Tests\Framework\Entity;
 
 use Dorian\ORM\Entity\Entity;
 
-class PersonEntity extends Entity
+class Personne extends Entity
 {
 
 }
