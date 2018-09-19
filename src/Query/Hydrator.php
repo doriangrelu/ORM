@@ -28,7 +28,7 @@ class Hydrator
 
     private $_contains = [];
 
-    private $collections = [];
+    private $_collections = [];
     /**
      * @var Entity
      */
@@ -70,7 +70,14 @@ class Hydrator
         return $this->_container->get($namespace . $className);
     }
 
-    private function _makeTree()
+    private function _matchingCollections()
+    {
+        foreach ($this->_collections as $table => $collections) {
+
+        }
+    }
+
+    private function _findCollectionFromTableAndId($table, $id)
     {
 
     }
@@ -78,31 +85,60 @@ class Hydrator
     public function hydrate()
     {
         $entitiesToHydrate = $this->_getEntitiesToHydrate();
-            foreach($this->_data as $line)
-            {
-                foreach($entitiesToHydrate as $entityToHydrate){
-                   $entity = $this->_getEntity($entityToHydrate);
-
-                   var_dump($entity);
-                   die();
-                }
-                var_dump($line);
-                die();
+        foreach ($this->_data as $line) {
+            foreach ($entitiesToHydrate as $entityToHydrate) {
+                $entity = $this->_getHydratedEntity($entityToHydrate, $line);
+                $this->_alereadyHydrate($entityToHydrate, $entity);
             }
+        }
+
+        var_dump($this->_contains   );
+        die();
 
     }
 
-    private function getHydratedEntity($entityName, $line)
+    private function _getIdFromTable($table)
+    {
+        $repository = $this->_container->get(Environment::REPOSITORY_NAMSPACE) . $table . 'Repository';
+        $repositoryInstance = $this->_container->get($repository);
+        return $repositoryInstance->getId();
+    }
+
+    private function _alereadyHydrate($entityName, $entity)
+    {
+        $table = Inflector::pluralize($entityName);
+        $id = $this->_getIdFromTable($table);
+
+        if (!isset($this->_collections[$table])) {
+            $this->_collections[$table][] = $entity;
+            return false;
+        }
+
+        foreach ($this->_collections[$table] as $entityCollecion) {
+            if ($entityCollecion->$id == $entity->$id) {
+                return true;
+            }
+        }
+
+        return $this->_collections[$table][] = $entity;
+    }
+
+    private function _entityExistsInCollection($entityName, $ids)
+    {
+
+    }
+
+    private function _getHydratedEntity($entityName, $line)
     {
         $entity = $this->_getEntity($entityName);
-        foreach($line as $field=>$value){
-            if(strpos($field, '_'.$entityName)!==false){
-                $realFieldName=str_replace('_'.$entityName, '', $field);
+        foreach ($line as $field => $value) {
+            if (strpos($field, '_' . $entityName) !== false) {
+                $realFieldName = str_replace('_' . $entityName, '', $field);
                 $entity->$realFieldName = $value;
 
             }
         }
-
+        return $entity;
 
     }
 
