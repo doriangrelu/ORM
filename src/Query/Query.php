@@ -10,6 +10,7 @@ namespace Dorian\ORM\Query;
 
 
 use Cake\Utility\Inflector;
+use Dorian\ORM\Exception\BadConditionException;
 use Dorian\ORM\Repository;
 use Psr\Container\ContainerInterface;
 
@@ -23,6 +24,9 @@ class Query
     private $_fields = [];
     private $_reposiotryNamespace;
     private $_entityNamespace;
+    private $_entityContains = [];
+    private $_bindedParams = [];
+    private $_operators = ['<', '>', '<>', 'LIKE', 'IN', 'NOT IN', 'BETWEEN', '!=', '<=', '>=',];
     /**
      * \PDO
      */
@@ -98,9 +102,14 @@ class Query
         return $this;
     }
 
-    public function first()
+    private function _bindParams(array $params)
     {
 
+    }
+
+    public function first()
+    {
+        $query = $this->_connexion->prepare($this->__toString());
     }
 
     public function firstOrFail()
@@ -189,6 +198,110 @@ class Query
         return $fromInstance->getAssociation($to)->getJoinCondition();
     }
 
+    private function _getConditionLogic(string $operator)
+    {
+        if (strpos($operator, 'OR')) {
+            return ' OR ';
+        }
+        return ' AND ';
+    }
+
+    private function _getCondition()
+    {
+        $conditions = [];
+        $i = 0;
+        $max = count($this->_conditions);
+        foreach ($this->_conditions as $field => $condition) {
+            if ($i === 0) {
+                $conditions[] = ' WHERE ';
+            }
+            $conditionLogic = $this->_getConditionLogic($condition);
+            $operator = $this->_getConditionOperator($field);
+
+            $formatedField = $this->_getFormatedField($field);
+            $bindedField = $this->_getBindedParamName($field);
+            $conditionValue = $condition;
+            $this->_cleanCondition($conditionValue);
+            $this->_bindedParams[$bindedField] = $conditionValue;
+            $conditions[] = $formatedField . ' ' . $operator . ' :' . $bindedField . (($i + 1) < $max ? $conditionLogic : '');
+            $i++;
+        }
+        return $conditions;
+    }
+
+    private function _cleanCondition(&$condition)
+    {
+        foreach (['AND', 'OR'] as $operator) {
+            $condition = str_replace($operator, '', $condition);
+        }
+        $condition = trim($condition);
+    }
+
+    private function _isComposateField(&$field)
+    {
+        $matches = [];
+        $this->_cleanField($field);
+        preg_match_all('/\./', $field, $matches);
+        return (strpos($field, '.') !== false && count($matches) === 1);
+    }
+
+    private function _getFormatedField($field)
+    {
+        if ($this->_isComposateField($field)) {
+            list($table, $fieldTable) = explode('.', $field);
+            return $table . '.' . '`' . mb_strtolower($fieldTable) . '`';
+        }
+        return '`' . mb_strtolower($field) . '`';
+    }
+
+    private function _getFormatedCondition($operator, $condition)
+    {
+        switch ($operator) {
+            case 'IN':
+                if (!is_array($condition)) {
+                    throw new BadConditionException();
+                }
+                return ' IN (' . implode(', ', $condition) . ')';
+            default :
+                if (strpos(mb_strtoupper($condition), 'IS') !== false) {
+                    return ' ' . $condition;
+                }
+                return $operator . ' ' . $condition;
+        }
+    }
+
+    private function _getBindedParamName($field)
+    {
+        $this->_cleanField($field);
+        $ret = $field;
+        if ($this->_isComposateField($field)) {
+            list($table, $fieldName) = explode('.', $field);
+            $ret = $table . '_' . $fieldName;
+        }
+        return Inflector::underscore(mb_strtolower($ret));
+    }
+
+    private function _cleanField(&$field)
+    {
+        $field = str_replace('AND', '', $field);
+        $field = str_replace('OR', '', $field);
+        foreach ($this->_operators as $operator) {
+            $field = str_replace($operator, '', $field);
+        }
+        $field = trim($field);
+    }
+
+    private function _getConditionOperator($field)
+    {
+        $operators = $this->_operators;
+        foreach ($operators as $operator) {
+            if (strpos($field, $operator) !== false) {
+                return $operator;
+            }
+        }
+        return '=';
+    }
+
     public function __toString()
     {
         $statment = "SELECT {$this->_getSelect()} FROM {$this->_getRealTableName()} AS {$this->_table}";
@@ -196,10 +309,9 @@ class Query
         $joins = [];
         foreach ($this->_contains as $contain) {
             $joins[] = $this->_join($contain);
-
         }
-
         $statment .= implode(' ', $joins);
+        $statment .= implode(' ', $this->_getCondition());
         return $statment;
     }
 
