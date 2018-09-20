@@ -15,11 +15,8 @@ class QueryTest extends \PHPUnit\Framework\TestCase
             ->setDatabaseConnexion('localhost', 'orm', 'root', '')
             ->setEntityNamespace("Tests\\Framework\\Entity\\");
         $manager = new \Dorian\ORM\Manager($environment);
-        var_dump($manager->getRepository('Personnes')->find()
-            ->contain('Roles', 'Roles.Levels')
-            ->where([
-                'Roles.name' => 'Admin',
-            ])
+        var_dump($manager->getRepository('Levels')->find()
+            ->contain('Roles' )
             ->first());
 
         die('here');

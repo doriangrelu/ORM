@@ -73,36 +73,55 @@ class Hydrator
         return $this->_container->get($namespace . $className);
     }
 
+    /**
+     * @throws DatabaseException
+     */
     private function _matchingCollections()
     {
-
         foreach ($this->_contains as $from => $joineds) {
             foreach ($joineds as $join) {
                 foreach ($this->_collections[$from] as $table) {
-                    $table->collection = 'TEST';
                     if ($this->_getAssociation($from, $join) == AssociationManager::SINGLE) {
                         $paramName = mb_strtolower(Inflector::singularize($join));
+                        die('here');
                         $fieldName = $this->_getFieldJoined($join);
                         $table->$paramName = $this->_findCollectionFromTableAndId($join, $table->$fieldName);
                     } else {
-                        $paramName = mb_strtolower($join);
-                        $fieldName = $this->_getFieldJoined($from);
-                    }
 
+                        $paramName = $this->_getFieldJoined($join, 'pluralize');
+                        $table->$paramName = $this->_findEntitiesById($from, $join);
+                    }
                 }
             }
-
-        }
-        foreach ($this->_collections as $table => $collections) {
-
         }
     }
 
-    private function _getFieldJoined($to)
+    private function _findEntitiesById($table, $to)
     {
-        return mb_strtolower(Inflector::singularize($to)) . '_id';
+        $id = $this->_getIdFromTable($table);
+        $fieldName = $this->_getFieldJoined($table);
+        $entities = [];
+        if (isset($this->_collections[$to])) {
+            foreach ($this->_collections[$to] as $entity) {
+                if ($entity->$fieldName === $entity->$id) {
+                    $entities[] = $entity;
+                }
+            }
+        }
+        return $entities;
     }
 
+    private function _getFieldJoined($to, $type = "singularize")
+    {
+        return mb_strtolower(Inflector::$type($to)) . '_id';
+    }
+
+    /**
+     * @param $table
+     * @param $id
+     * @return mixed
+     * @throws DatabaseException
+     */
     private function _findCollectionFromTableAndId($table, $id)
     {
         if (isset($this->_collections[$table]) && isset($this->_collections[$table][$id])) {
@@ -111,6 +130,9 @@ class Hydrator
         throw new DatabaseException('Not selected table ' . $table);
     }
 
+    /**
+     * @throws DatabaseException
+     */
     public function hydrate()
     {
         $entitiesToHydrate = $this->_getEntitiesToHydrate();
@@ -120,12 +142,8 @@ class Hydrator
                 $this->_alereadyHydrate($entityToHydrate, $entity);
             }
         }
-
         $this->_matchingCollections();
-
-        var_dump($this->_collections);
-        die();
-
+        return $this->_collections[$this->_from];
     }
 
     private function _getIdFromTable($table)
@@ -162,11 +180,6 @@ class Hydrator
         }
 
         return $this->_collections[$table][$entity->$id] = $entity;
-    }
-
-    private function _entityExistsInCollection($entityName, $ids)
-    {
-
     }
 
     private function _getHydratedEntity($entityName, $line)

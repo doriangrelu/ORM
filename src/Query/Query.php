@@ -108,11 +108,14 @@ class Query
 
     }
 
+    /**
+     * @return mixed
+     * @throws \Dorian\ORM\Exception\DatabaseException
+     */
     public function first()
     {
         $data = $this->_execute();
-        var_dump($this->_getHydrator($data)->hydrate());
-        die();
+        return ($this->_getHydrator($data)->hydrate());
     }
 
     private function _execute()
