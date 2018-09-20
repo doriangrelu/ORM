@@ -10,9 +10,12 @@ namespace Dorian\ORM\Query;
 
 
 use Cake\Utility\Inflector;
+use Dorian\ORM\Association\AssociationManager;
 use Dorian\ORM\Entity\Entity;
 use Dorian\ORM\Environment;
+use Dorian\ORM\Exception\DatabaseException;
 use Dorian\ORM\Exception\EntityException;
+use Dorian\ORM\Repository;
 use Psr\Container\ContainerInterface;
 
 class Hydrator
@@ -72,14 +75,40 @@ class Hydrator
 
     private function _matchingCollections()
     {
+
+        foreach ($this->_contains as $from => $joineds) {
+            foreach ($joineds as $join) {
+                foreach ($this->_collections[$from] as $table) {
+                    $table->collection = 'TEST';
+                    if ($this->_getAssociation($from, $join) == AssociationManager::SINGLE) {
+                        $paramName = mb_strtolower(Inflector::singularize($join));
+                        $fieldName = $this->_getFieldJoined($join);
+                        $table->$paramName = $this->_findCollectionFromTableAndId($join, $table->$fieldName);
+                    } else {
+                        $paramName = mb_strtolower($join);
+                        $fieldName = $this->_getFieldJoined($from);
+                    }
+
+                }
+            }
+
+        }
         foreach ($this->_collections as $table => $collections) {
 
         }
     }
 
+    private function _getFieldJoined($to)
+    {
+        return mb_strtolower(Inflector::singularize($to)) . '_id';
+    }
+
     private function _findCollectionFromTableAndId($table, $id)
     {
-
+        if (isset($this->_collections[$table]) && isset($this->_collections[$table][$id])) {
+            return $this->_collections[$table][$id];
+        }
+        throw new DatabaseException('Not selected table ' . $table);
     }
 
     public function hydrate()
@@ -92,16 +121,28 @@ class Hydrator
             }
         }
 
-        var_dump($this->_contains   );
+        $this->_matchingCollections();
+
+        var_dump($this->_collections);
         die();
 
     }
 
     private function _getIdFromTable($table)
     {
+        return $this->_getRepository($table)->getId();
+    }
+
+    private function _getRepository($table): Repository
+    {
         $repository = $this->_container->get(Environment::REPOSITORY_NAMSPACE) . $table . 'Repository';
-        $repositoryInstance = $this->_container->get($repository);
-        return $repositoryInstance->getId();
+        return $this->_container->get($repository);
+    }
+
+    private function _getAssociation($table, $to)
+    {
+        $repository = $this->_getRepository($table);
+        return $repository->getAssociation($to)->getTypeOfEntityContainer();
     }
 
     private function _alereadyHydrate($entityName, $entity)
@@ -110,7 +151,7 @@ class Hydrator
         $id = $this->_getIdFromTable($table);
 
         if (!isset($this->_collections[$table])) {
-            $this->_collections[$table][] = $entity;
+            $this->_collections[$table][$entity->$id] = $entity;
             return false;
         }
 
@@ -120,7 +161,7 @@ class Hydrator
             }
         }
 
-        return $this->_collections[$table][] = $entity;
+        return $this->_collections[$table][$entity->$id] = $entity;
     }
 
     private function _entityExistsInCollection($entityName, $ids)

@@ -14,6 +14,10 @@ use Psr\Container\ContainerInterface;
 
 abstract class AssociationManager
 {
+
+    const MULTIPLE = 1;
+    const SINGLE = 2;
+
     protected $_tableName;
     protected $_id;
     protected $_to;
@@ -21,6 +25,12 @@ abstract class AssociationManager
      * @var ContainerInterface
      */
     protected $_container;
+
+    private function _getName()
+    {
+        $path = explode('\\', __CLASS__);
+        return array_pop($path);
+    }
 
     public function __construct(string $to, string $tableName, string $id, ContainerInterface $container)
     {
@@ -30,7 +40,12 @@ abstract class AssociationManager
         $this->_container = $container;
     }
 
-    protected function _getRealTableName(string $tableName):string
+    public function getTypeOfEntityContainer(): string
+    {
+        return $this->_getName() == 'HasMany' ? self::MULTIPLE : self::SINGLE;
+    }
+
+    protected function _getRealTableName(string $tableName): string
     {
         return mb_strtolower(Inflector::underscore($tableName));
     }
