@@ -28,7 +28,7 @@ abstract class AssociationManager
 
     private function _getName()
     {
-        $path = explode('\\', __CLASS__);
+        $path = explode('\\', get_class($this));
         return array_pop($path);
     }
 

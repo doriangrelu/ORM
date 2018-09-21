@@ -17,7 +17,7 @@ class QueryTest extends \PHPUnit\Framework\TestCase
         $manager = new \Dorian\ORM\Manager($environment);
         var_dump($manager->getRepository('Levels')->find()
             ->contain('Roles' )
-            ->first());
+            ->firstOrFail());
 
         die('here');
     }

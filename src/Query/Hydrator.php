@@ -70,7 +70,9 @@ class Hydrator
         if (!class_exists($class)) {
             throw new EntityException("Missing entity $class");
         }
-        return $this->_container->get($namespace . $className);
+        $class = $namespace . $className;
+        return new $class();
+        //return $this->_container->get($namespace . $className);
     }
 
     /**
@@ -78,32 +80,34 @@ class Hydrator
      */
     private function _matchingCollections()
     {
+
         foreach ($this->_contains as $from => $joineds) {
             foreach ($joineds as $join) {
+                if (!isset($this->_collections[$from])) {
+                    continue;
+                }
                 foreach ($this->_collections[$from] as $table) {
                     if ($this->_getAssociation($from, $join) == AssociationManager::SINGLE) {
                         $paramName = mb_strtolower(Inflector::singularize($join));
-                        die('here');
                         $fieldName = $this->_getFieldJoined($join);
                         $table->$paramName = $this->_findCollectionFromTableAndId($join, $table->$fieldName);
                     } else {
-
-                        $paramName = $this->_getFieldJoined($join, 'pluralize');
-                        $table->$paramName = $this->_findEntitiesById($from, $join);
+                        $id = $this->_getIdFromTable($from);
+                        $paramName = mb_strtolower(Inflector::pluralize($join));
+                        $table->$paramName = $this->_findEntitiesById($from, $join, $table->$id);
                     }
                 }
             }
         }
     }
 
-    private function _findEntitiesById($table, $to)
+    private function _findEntitiesById($table, $to, $id)
     {
-        $id = $this->_getIdFromTable($table);
         $fieldName = $this->_getFieldJoined($table);
         $entities = [];
         if (isset($this->_collections[$to])) {
             foreach ($this->_collections[$to] as $entity) {
-                if ($entity->$fieldName === $entity->$id) {
+                if ($entity->$fieldName === $id) {
                     $entities[] = $entity;
                 }
             }
@@ -136,14 +140,26 @@ class Hydrator
     public function hydrate()
     {
         $entitiesToHydrate = $this->_getEntitiesToHydrate();
+        $entities = [];
         foreach ($this->_data as $line) {
             foreach ($entitiesToHydrate as $entityToHydrate) {
                 $entity = $this->_getHydratedEntity($entityToHydrate, $line);
-                $this->_alereadyHydrate($entityToHydrate, $entity);
+                $entities[] = $entity;
             }
         }
+        $this->_createCollection($entities);
         $this->_matchingCollections();
-        return $this->_collections[$this->_from];
+        return array_values($this->_collections[$this->_from] ?? []);
+    }
+
+    private function _createCollection($entities)
+    {
+        foreach ($entities as $entity) {
+            $path = explode('\\', get_class($entity));
+            $tableName = Inflector::pluralize(array_pop($path));
+            $id = $this->_getIdFromTable($tableName);
+            $this->_collections[$tableName][$entity->$id] = $entity;
+        }
     }
 
     private function _getIdFromTable($table)
@@ -163,25 +179,6 @@ class Hydrator
         return $repository->getAssociation($to)->getTypeOfEntityContainer();
     }
 
-    private function _alereadyHydrate($entityName, $entity)
-    {
-        $table = Inflector::pluralize($entityName);
-        $id = $this->_getIdFromTable($table);
-
-        if (!isset($this->_collections[$table])) {
-            $this->_collections[$table][$entity->$id] = $entity;
-            return false;
-        }
-
-        foreach ($this->_collections[$table] as $entityCollecion) {
-            if ($entityCollecion->$id == $entity->$id) {
-                return true;
-            }
-        }
-
-        return $this->_collections[$table][$entity->$id] = $entity;
-    }
-
     private function _getHydratedEntity($entityName, $line)
     {
         $entity = $this->_getEntity($entityName);
@@ -189,11 +186,9 @@ class Hydrator
             if (strpos($field, '_' . $entityName) !== false) {
                 $realFieldName = str_replace('_' . $entityName, '', $field);
                 $entity->$realFieldName = $value;
-
             }
         }
         return $entity;
-
     }
 
 }

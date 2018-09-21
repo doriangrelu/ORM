@@ -11,6 +11,7 @@ namespace Dorian\ORM\Query;
 
 use Cake\Utility\Inflector;
 use Dorian\ORM\Exception\BadConditionException;
+use Dorian\ORM\Exception\RecordNotFoundException;
 use Dorian\ORM\Repository;
 use Psr\Container\ContainerInterface;
 
@@ -26,7 +27,8 @@ class Query
     private $_entityNamespace;
     private $_entityContains = [];
     private $_bindedParams = [];
-    private $_joinedTables=[];
+    private $_joinedTables = [];
+    private $_order = [];
     private $_operators = ['<', '>', '<>', 'LIKE', 'IN', 'NOT IN', 'BETWEEN', '!=', '<=', '>=',];
     /**
      * \PDO
@@ -103,9 +105,13 @@ class Query
         return $this;
     }
 
-    private function _bindParams(array $params)
+    public function firstOrFail()
     {
-
+        $data = $this->first();
+        if (empty($data)) {
+            throw new RecordNotFoundException("Record not found in table $this->_table");
+        }
+        return $data;
     }
 
     /**
@@ -114,8 +120,13 @@ class Query
      */
     public function first()
     {
+        return $this->_getHydratedData()[0] ?? [];
+    }
+
+    private function _getHydratedData()
+    {
         $data = $this->_execute();
-        return ($this->_getHydrator($data)->hydrate());
+        return $this->_getHydrator($data)->hydrate();
     }
 
     private function _execute()
@@ -134,11 +145,6 @@ class Query
         }
     }
 
-    public function firstOrFail()
-    {
-
-    }
-
     private function _getHydrator($data)
     {
         return new Hydrator($data, $this->_entityContains, $this->_table, $this->_container);
@@ -146,7 +152,7 @@ class Query
 
     public function toArray()
     {
-
+        return $this->_getHydratedData();
     }
 
     private function _getSelectedTables()
@@ -166,6 +172,12 @@ class Query
             $selectedTables = array_merge($selectedTables, $tablesList);
         }
         return $selectedTables;
+    }
+
+    public function orderBy($field, $type = 'ASC')
+    {
+        $this->_order[$field] = $type;
+        return $this;
     }
 
     /**
@@ -210,8 +222,8 @@ class Query
 
         while (!empty($tableList)) {
             $to = array_pop($tableList);
-            if(in_array($to, $this->_joinedTables)){
-                $from=$to;
+            if (in_array($to, $this->_joinedTables)) {
+                $from = $to;
                 continue;
             } else {
                 $this->_joinedTables[] = $to;
@@ -321,16 +333,30 @@ class Query
         return '=';
     }
 
+    private function _getOrderByClause()
+    {
+        $clause = [];
+        foreach ($this->_order as $field => $type) {
+            $clause[] = $field . ' ' . $type;
+        }
+        if (empty($clause)) {
+            return '';
+        }
+        return ' ORDER ' . implode(', ', $clause);
+
+    }
+
     public function __toString()
     {
         $statment = "SELECT {$this->_getSelect()} FROM {$this->_getRealTableName()} AS {$this->_table}";
-
         $joins = [];
         foreach ($this->_contains as $contain) {
             $joins[] = $this->_join($contain);
         }
         $statment .= implode(' ', $joins);
         $statment .= ' ' . implode(' ', $this->_getCondition());
+        $statment .= $this->_getOrderByClause();
+        $statment .=';';
         return $statment;
     }
 
