@@ -12,11 +12,11 @@ class QueryTest extends \PHPUnit\Framework\TestCase
     {
         $environment = (new \Dorian\ORM\Environment())
             ->setRepositoryNamspace("Tests\\Framework\\Repository\\")
-            ->setDatabaseConnexion('localhost', 'orm', 'root', '')
+            ->setDatabaseConnexion('localhost', 'doriangrelu', 'root', '')
             ->setEntityNamespace("Tests\\Framework\\Entity\\");
         $manager = new \Dorian\ORM\Manager($environment);
-        var_dump($manager->getRepository('Levels')->find()
-            ->contain('Roles' )
+        var_dump($manager->getRepository('Roles')->find()
+            ->contain('Users')
             ->firstOrFail());
 
         die('here');

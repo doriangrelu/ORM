@@ -67,6 +67,7 @@ class Hydrator
         $namespace = $this->_container->get(Environment::ENTITY_NAMESPACE);
         $className = Inflector::singularize($table);
         $class = $namespace . $className;
+
         if (!class_exists($class)) {
             throw new EntityException("Missing entity $class");
         }

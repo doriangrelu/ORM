@@ -2,8 +2,8 @@
 /**
  * Created by PhpStorm.
  * User: doria
- * Date: 16/09/2018
- * Time: 16:46
+ * Date: 14/09/2018
+ * Time: 15:19
  */
 
 namespace Tests\Framework\Repository;
@@ -12,11 +12,11 @@ namespace Tests\Framework\Repository;
 use Dorian\ORM\Repository;
 use Psr\Container\ContainerInterface;
 
-class RolesRepository extends Repository
+class UsersRepository extends Repository
 {
     public function __construct(ContainerInterface $container)
     {
         parent::__construct($container);
-        $this->hasMany('Users');
+        $this->belongsTo('Roles');
     }
 }

@@ -14,11 +14,23 @@ use Dorian\ORM\Exception\EntityException;
 class Entity
 {
     private $_fields = [];
+    private $_allowedFields = [];
     private $_errors = [];
 
-    public function __construct()
+    public function __construct(array $fields = [])
     {
+      $this->_allowedFields = $this->_filterFieds($fields);
+    }
 
+    private function _filterFieds(array $fields):array
+    {
+      $cleanFields = [];
+      foreach($fields as $field=>$value){
+        if(in_array($field, $this->_allowedFields)){
+          $cleanFields[$fields] = $value;
+        }
+      }
+      return $cleanFields;
     }
 
 
